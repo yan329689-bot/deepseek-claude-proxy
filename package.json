@@ -1,0 +1,15 @@
+{
+  "name": "deepseek-claude-proxy",
+  "version": "1.0.0",
+  "description": "修复 Claude Code 非交互模式与 DeepSeek API 的 system role 兼容性问题",
+  "main": "server.js",
+  "bin": {
+    "deepseek-claude-proxy": "./server.js"
+  },
+  "files": [
+    "server.js",
+    "README.md"
+  ],
+  "keywords": ["deepseek", "claude-code", "proxy", "anthropic", "compatibility"],
+  "license": "MIT"
+}
