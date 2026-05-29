@@ -1,8 +1,9 @@
 # DeepSeek Claude Proxy
 
 ## 这是什么
-
-Claude Code 通过飞书机器人与你对话时，如果用的是 DeepSeek API，机器人会不回复。这个代理就是解决这个问题的。
+适用于 Claude Code + DeepSeek API + 飞书机器人的组合。
+通过飞书机器人与Claude Code（2.1.152以后的版本）对话时，如果用的是 DeepSeek API，机器人会出现报错（下面图片）。这个代理就是解决这个问题的。
+![Uploading image.png…]()
 
 ## 怎么用
 
@@ -21,18 +22,9 @@ API Error: 400
 messages[1].role: unknown variant system
 ```
 
-原因很简单：在终端聊天时，Claude Code 把系统提示词放在请求的"前言"里，DeepSeek 认。但通过飞书 bridge 对话时，Claude Code 走的是后台调用模式，把系统提示词写进了对话记录里。DeepSeek 不认识这个位置，就拒绝了。
+原因：在终端聊天时，Claude Code 把系统提示词放在请求的"前言"里，DeepSeek 认。但通过飞书 bridge 对话时，Claude Code 走的是后台调用模式，把系统提示词写进了对话记录里。DeepSeek 不认识这个位置，就拒绝了。
 
 这个代理做的事：在请求到达 DeepSeek 之前，自动把系统提示词挪到对的位置。
-
-## 适用场景
-
-**只适用于 Claude Code + DeepSeek API + 飞书机器人的组合。**
-
-- Claude Code 接飞书 bridge，机器人不回复
-- `claude -p` 命令报 system role 错误
-
-其他工具（Cursor、Codex 等）不一定适用。
 
 ## License
 
