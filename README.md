@@ -3,7 +3,7 @@
 ## 这是什么
 适用于 Claude Code + DeepSeek API + 飞书机器人的组合。
 通过飞书机器人与Claude Code（2.1.152以后的版本）对话时，如果用的是 DeepSeek API，机器人会出现报错（下面图片）。这个代理就是解决这个问题的。
-![Uploading image.png…]()
+<img width="750" height="298" alt="image" src="https://github.com/user-attachments/assets/ed275012-a8cd-4c24-a76b-515e9bc6d6b5" />
 
 ## 怎么用
 
