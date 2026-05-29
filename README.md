@@ -1,10 +1,55 @@
 # DeepSeek Claude Proxy
 
-修复 Claude Code 非交互模式与 DeepSeek API 的兼容性问题。
+修复 Claude Code 非交互模式与 DeepSeek API 的 `system` role 兼容性问题。
 
-## 问题
+## 1. 为什么会出现这个问题
 
-从 Claude Code `2.1.154` 开始，非交互模式（`claude -p`、飞书 bridge 等）会将系统提示词以 `role: "system"` 的形式放进 `messages` 数组：
+### 背景
+
+很多人用 DeepSeek API 来驱动 Claude Code，因为 DeepSeek 提供了 Anthropic 兼容接口：
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
+    "ANTHROPIC_MODEL": "deepseek-v4-pro"
+  }
+}
+```
+
+在终端里交互式使用（打开 `claude` 对着聊天）一切正常。
+
+### 触发条件
+
+当你用**非交互模式**时就会炸，比如：
+
+- `echo "hello" | claude -p`（管道输入）
+- 飞书/钉钉 bridge 调用 Claude Code（后台自动回复）
+- 任何脚本/程序通过 SDK 调用 Claude Code
+
+报错：
+
+```
+API Error: 400 Failed to deserialize the JSON body into the target type:
+messages[1].role: unknown variant system, expected user or assistant
+```
+
+### 根因
+
+Claude Code 内部有两种模式，构建 API 请求的方式不同：
+
+**交互模式（终端聊天）**——系统提示词放在请求体顶层：
+
+```json
+{
+  "system": "你是 Claude Code…（CLAUDE.md、skills 等上下文）",
+  "messages": [
+    {"role": "user", "content": "你好"}
+  ]
+}
+```
+
+**非交互模式（`claude -p` / bridge 调用）**——从 2.1.154 开始，系统提示词被错误地塞进了 `messages` 数组：
 
 ```json
 {
@@ -15,34 +60,52 @@
 }
 ```
 
-DeepSeek 的 Anthropic 兼容接口严格校验 `messages` 数组，只接受 `user` 和 `assistant` role，返回 400 错误：
+Anthropic 官方 API 对 `messages` 数组里的 `system` role 比较宽容，不做严格校验。但 DeepSeek 的兼容接口严格遵循规范——`messages` 数组只允许 `user` 和 `assistant`，遇到 `system` 直接返回 400。
+
+**简单说：Claude Code 写了不符合规范的请求格式，真正的 Anthropic 不管，DeepSeek 管。**
+
+## 2. 解决方案
+
+一个轻量本地代理，部署在 `127.0.0.1:18765`，夹在 Claude Code 和 DeepSeek 之间。
+
+它只做一件事：
 
 ```
-messages[1].role: unknown variant system, expected user or assistant
+Claude Code 发来请求
+  ↓
+检测 messages 数组里有没有 role: "system"
+  ↓ 有 → 提取内容，移到顶层 system 字段
+  ↓ 没有 → 直接放行
+  ↓
+转发给 DeepSeek → 返回结果 → 原样送回 Claude Code
 ```
 
-## 解决方案
+整个过程对两边透明，几十行 Node.js 代码，零依赖。
 
-本地代理（几十行 Node.js）部署在 `127.0.0.1:18765`，自动将 `system` role 从 `messages` 数组提取到顶层 `system` 字段，再转发给 DeepSeek。
+## 3. 使用方式
 
-## 安装
+### 第一步：下载
 
 ```bash
-git clone https://github.com/<your-username>/deepseek-claude-proxy.git
+git clone https://github.com/yan329689-bot/deepseek-claude-proxy.git
 cd deepseek-claude-proxy
 ```
 
-## 使用
-
-### 1. 启动代理
+### 第二步：启动代理
 
 ```bash
 node server.js
 ```
 
-### 2. 配置 Claude Code
+看到以下输出表示启动成功：
 
-在 `~/.claude/settings.json` 中：
+```
+[proxy] 启动成功: http://127.0.0.1:18765 → https://api.deepseek.com/anthropic
+```
+
+### 第三步：配置 Claude Code
+
+编辑 `~/.claude/settings.json`，将 `ANTHROPIC_BASE_URL` 指向本地代理：
 
 ```json
 {
@@ -54,18 +117,30 @@ node server.js
 }
 ```
 
-### 3. 设置持久运行
-
-**macOS（launchd）：** 或直接 crontab：
+### 第四步：测试
 
 ```bash
-# 开机自启
-crontab -e
-@reboot /usr/local/bin/node /path/to/deepseek-claude-proxy/server.js >> /tmp/proxy.log 2>&1
-
-# 每 5 分钟健康检查
-*/5 * * * * curl -s -o /dev/null http://127.0.0.1:18765/health || /usr/local/bin/node /path/to/deepseek-claude-proxy/server.js >> /tmp/proxy.log 2>&1
+echo "你好" | claude -p
 ```
+
+正常返回即表示修复成功。
+
+### 第五步：持久化（代理在后台一直跑）
+
+**macOS：**
+
+```bash
+crontab -e
+```
+
+添加两行：
+
+```
+@reboot /usr/local/bin/node /path/to/deepseek-claude-proxy/server.js >> /tmp/dscp.log 2>&1
+*/5 * * * * curl -s http://127.0.0.1:18765/health || /usr/local/bin/node /path/to/deepseek-claude-proxy/server.js >> /tmp/dscp.log 2>&1
+```
+
+第一行开机自启，第二行每 5 分钟检查一次，挂了就拉起来。
 
 **Linux（systemd）：**
 
@@ -82,20 +157,25 @@ Restart=always
 WantedBy=multi-user.target
 ```
 
-## 工作原理
+保存为 `/etc/systemd/system/deepseek-claude-proxy.service`，然后：
 
-```
-Claude Code → http://127.0.0.1:18765 → 修复 system role → DeepSeek API
+```bash
+sudo systemctl enable --now deepseek-claude-proxy
 ```
 
-代理只做一件事：检测 `messages` 数组中是否有 `role: "system"` 的消息，若有则提取其内容到请求体的顶层 `system` 字段，然后原样转发给 DeepSeek。请求本身没有 system role 问题时，直接放行。
+## 健康检查
+
+```bash
+curl http://127.0.0.1:18765/health
+# 返回 "ok" 表示代理正常运行
+```
 
 ## 适用场景
 
-- Claude Code 连接 DeepSeek API
+- Claude Code + DeepSeek API 组合
 - 非交互模式：`claude -p`、管道输入
-- 飞书/钉钉 bridge 调用 Claude Code
-- 任何通过脚本/程序调用 Claude Code 的场景
+- 飞书/钉钉/微信 bridge 调用 Claude Code
+- 任何程序化调用 Claude Code 的场景
 
 ## License
 
