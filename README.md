@@ -1,59 +1,47 @@
 # DeepSeek Claude Proxy
 
-用 DeepSeek API 驱动 Claude Code 时，飞书/钉钉机器人不回消息？一行命令修复。
+## 怎么用
 
-## 快速修复
-
-把下面这句话发给 Claude Code 就行：
-
-> 帮我把这个仓库克隆下来，按照 README 里的方法部署本地代理，然后帮我把 Claude Code 的 ANTHROPIC_BASE_URL 改成 http://127.0.0.1:18765
-
-或者直接执行这一行：
+**如果你在终端里**，直接执行这一行命令：
 
 ```bash
-git clone https://github.com/yan329689-bot/deepseek-claude-proxy.git /tmp/deepseek-claude-proxy && node /tmp/deepseek-claude-proxy/server.js
+git clone https://github.com/yan329689-bot/deepseek-claude-proxy.git /tmp/deepseek-claude-proxy && node /tmp/deepseek-claude-proxy/server.js &
 ```
 
-然后让 Claude Code 帮你把 `~/.claude/settings.json` 里的 `ANTHROPIC_BASE_URL` 改成 `http://127.0.0.1:18765`。
+然后打开 `~/.claude/settings.json`，把 `ANTHROPIC_BASE_URL` 改成：
 
-重启飞书 bridge，问题解决。
+```
+http://127.0.0.1:18765
+```
 
-## 这是什么问题
+重启你的飞书 bridge 或 Claude Code 就行了。
 
-用 DeepSeek API 跑 Claude Code，在终端里聊天一切正常。但用飞书/钉钉机器人、或者 `claude -p` 命令行的时候，就会报错：
+**如果你在 Claude Code 里**，把下面这段话发给他：
+
+> 帮我克隆 https://github.com/yan329689-bot/deepseek-claude-proxy，启动里面的 server.js 作为后台服务，然后把我的 ANTHROPIC_BASE_URL 改成 http://127.0.0.1:18765，最后帮我配好开机自启。
+
+让 Claude Code 帮你搞定全部。
+
+## 为什么会有这个问题
+
+你用 DeepSeek 的 API 来跑 Claude Code，平时在终端里聊天很正常。但当你在飞书、钉钉里给 Claude Code 发消息，或者用 `claude -p` 命令的时候，就会报错：
 
 ```
 API Error: 400
-messages[1].role: unknown variant system, expected user or assistant
+messages[1].role: unknown variant system
 ```
 
-原因很简单：Claude Code 在后台调用模式下，会把系统提示词放在一个不该放的位置。真正的 Anthropic API 不在意，但 DeepSeek 的接口比较严格，直接拒绝了。
+原因很简单：Claude Code 在后台模式下，把"系统提示词"放在了一个 DeepSeek 不认识的位置。就好比你填表时把名字写在了身份证号那一栏——内容没错，但位置不对，系统就不认。
 
-这个仓库里的代理就是把请求"修一下"，让它变成 DeepSeek 能接的格式。
-
-## 怎么让它一直在后台跑
-
-上面的命令关了终端就停了。想让它一直跑，把这句话发给 Claude Code：
-
-> 帮我把 deepseek-claude-proxy 设置为开机自启，并且每 5 分钟检查一次是否在运行，挂了就自动重启
-
-Claude Code 会帮你配置好。或者你自己加一条 crontab：
-
-```bash
-crontab -e
-```
-
-加一行：
-
-```
-@reboot /usr/local/bin/node /path/to/server.js >> /tmp/dscp.log 2>&1
-```
+这个代理做的事就是：在你发出的请求到达 DeepSeek 之前，自动帮你把位置调对。
 
 ## 适用场景
 
-- Claude Code 配置了 DeepSeek API
-- 飞书/钉钉/微信 bridge 不回复消息
-- `claude -p` 命令行模式报 system role 错误
+- 用 DeepSeek API + Claude Code 的组合
+- 飞书、钉钉、微信等机器人在后台不回复消息
+- `claude -p` 命令报 system role 错误
+
+只要遇到这类"终端聊天正常、后台调用报错"的情况，都可以用这个代理解决。
 
 ## License
 
