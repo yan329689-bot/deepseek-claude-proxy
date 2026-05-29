@@ -1,26 +1,12 @@
 # DeepSeek Claude Proxy
 
-## 怎么用
+## 安装
 
-**如果你在终端里**，直接执行这一行命令：
+复制下面这段话，发给你的智能体（Claude Code、Cursor、OpenCli、Claude Dev 等均可）：
 
-```bash
-git clone https://github.com/yan329689-bot/deepseek-claude-proxy.git /tmp/deepseek-claude-proxy && node /tmp/deepseek-claude-proxy/server.js &
-```
+> 帮我克隆 https://github.com/yan329689-bot/deepseek-claude-proxy 到本地，启动 server.js 作为后台服务，把 ~/.claude/settings.json 里的 ANTHROPIC_BASE_URL 改成 http://127.0.0.1:18765，然后配好开机自启。最后重启我的 bridge。
 
-然后打开 `~/.claude/settings.json`，把 `ANTHROPIC_BASE_URL` 改成：
-
-```
-http://127.0.0.1:18765
-```
-
-重启你的飞书 bridge 或 Claude Code 就行了。
-
-**如果你在 Claude Code 里**，把下面这段话发给他：
-
-> 帮我克隆 https://github.com/yan329689-bot/deepseek-claude-proxy，启动里面的 server.js 作为后台服务，然后把我的 ANTHROPIC_BASE_URL 改成 http://127.0.0.1:18765，最后帮我配好开机自启。
-
-让 Claude Code 帮你搞定全部。
+智能体会自动帮你完成所有步骤。搞定后你就可以正常在飞书、钉钉里跟 Claude Code 聊天了。
 
 ## 为什么会有这个问题
 
